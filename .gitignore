@@ -1,0 +1,49 @@
+﻿# ================================
+# Python / Virtual Environment
+# ================================
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ================================
+# IDE / OS
+# ================================
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ================================
+# Private Student Data
+# ================================
+data/student_test/
+data/enrollment/
+
+# ================================
+# Private CCTV / Video Data
+# ================================
+data/raw/
+data/processed/
+
+# ================================
+# Runtime Outputs
+# ================================
+output/
+logs/
+scratch/
+
+# ================================
+# Local Model / Cache Files
+# ================================
+*.cache
+*.tmp
+
+# ================================
+# Environment / Secrets
+# ================================
+.env
+.env.*
+!.env.example
