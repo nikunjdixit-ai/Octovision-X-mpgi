@@ -1,1 +1,1 @@
-"""TRACE CCTV-AI Core Package."""
+"""TRACE Classroom Attendance Core Package."""
