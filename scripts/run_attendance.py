@@ -16,6 +16,7 @@ from src.core.types import StreamConfig
 from src.identity.enrollment import EnrollmentError, StudentRegistry
 from src.identity.identity_engine import IdentityEngine
 from src.reid.reid_model import ReIDModel
+from src.verification.attendance_verifier import AttendanceVerifier, VerificationConfig
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -141,6 +142,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional maximum number of frames to process (processes full video by default)",
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Also write a verification report with per-student proof (frame, photo comparison, clip)",
+    )
+    parser.add_argument(
+        "--photos-dir",
+        type=str,
+        default=None,
+        help="Student photo folders used for proof.jpg (defaults to --students-dir)",
+    )
+    parser.add_argument(
+        "--no-clips",
+        action="store_true",
+        help="With --verify: skip clip.mp4 evidence (faster)",
+    )
     return parser
 
 
@@ -246,7 +263,8 @@ def main() -> int:
         config=stream_config,
         model_path=args.model,
     )
-    controller.subscribe(attendance_engine.process_frame)
+    verifier = AttendanceVerifier(attendance_engine, VerificationConfig()) if args.verify else None
+    controller.subscribe(verifier.process_frame if verifier else attendance_engine.process_frame)
 
     t0 = time.perf_counter()
     frames_processed = controller.run(max_frames=args.max_frames)
@@ -292,6 +310,25 @@ def main() -> int:
     )
     print(f"CSV Report    : {csv_path}")
     print(f"JSON Report   : {json_path}")
+
+    if verifier is not None:
+        report_dir = csv_path.parent / "verification"
+        v_csv, v_json, v_records = verifier.export(
+            report_dir,
+            photos_dir=args.photos_dir or args.students_dir,
+            video_path=None if args.no_clips else video_path,
+        )
+        print("\n--- VERIFICATION ---")
+        for rec in v_records:
+            if rec.verification in ("REVIEW", "POSSIBLY_PRESENT"):
+                print(f"{rec.student_id:<18} | {rec.name:<20} | {rec.verification:<16} | {'; '.join(rec.reasons)}")
+        counts = {s: sum(r.verification == s for r in v_records) for s in ("VERIFIED", "REVIEW", "POSSIBLY_PRESENT", "ABSENT")}
+        print(
+            f"Verified: {counts['VERIFIED']} | Review: {counts['REVIEW']} | "
+            f"Possibly present: {counts['POSSIBLY_PRESENT']} | Absent: {counts['ABSENT']}"
+        )
+        print(f"Verification  : {v_csv}")
+        print(f"Evidence      : {report_dir}/<student_id>/")
     print("=================================================================")
     return 0
 
