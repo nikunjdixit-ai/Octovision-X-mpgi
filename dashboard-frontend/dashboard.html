@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+==============================================================================
+OctoVIZN x MPGI | License Edition
+==============================================================================
+Same design system as the rest of the build: css/dashboard.css defines the
+color and type variables (Space Grotesk / Deltha for display text, Rajdhani
+for body copy, JetBrains Mono for terminal and small labels).
+
+The logo mark reused in the header below is the same circle and cross mark
+already used on the original TRACE header, not a new icon. The settings
+gear is the one new icon introduced on this screen: a clean eight tooth
+gear. The same gear markup lives in iconGear() inside js, so the header
+button and the settings panel always show the identical icon.
+
+How the class list works: this is a frontend only build, so it cannot read
+folders off the operator computer by itself. The CLASSES object near the
+top of js/dashboard.js is where each class and its student names are typed
+in once, matching the folder of reference photos that class already has on
+the operator computer. Attendance matching itself (checking the uploaded
+video against those photos) happens outside this file, in the AI pipeline
+described in the product notes. This screen only runs the on screen part:
+collecting the video, showing the roster, and presenting whatever result
+comes back for each student.
+==============================================================================
+-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OctoVIZN x MPGI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="ambient-backdrop" aria-hidden="true">
+  <span class="ambient-glow ambient-glow-a"></span>
+  <span class="ambient-glow ambient-glow-b"></span>
+  <span class="ambient-grain"></span>
+</div>
+
+<!-- ===========================
+     HEADER
+=========================== -->
+<header class="site-header">
+  <div class="header-inner">
+    <div class="logo" aria-label="OctoVIZN x MPGI">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.4"/>
+        <circle cx="10" cy="10" r="2.4" fill="currentColor"/>
+        <path d="M10 2V5.2M10 14.8V18M2 10H5.2M14.8 10H18" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="logo-text">OctoVIZN x MPGI</span>
+    </div>
+
+    <div class="header-right">
+      <div class="operator-meta">
+        <span class="operator-label">Operator</span>
+        <span class="operator-name" id="operatorName">Guest</span>
+      </div>
+      <button class="icon-btn icon-btn-square" id="settingsBtn" aria-label="Open settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M12 8.6C10.12 8.6 8.6 10.12 8.6 12C8.6 13.88 10.12 15.4 12 15.4C13.88 15.4 15.4 13.88 15.4 12C15.4 10.12 13.88 8.6 12 8.6Z" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M19.4 12C19.4 12.47 19.36 12.93 19.29 13.38L21.28 14.93C21.46 15.07 21.51 15.32 21.39 15.53L19.49 18.82C19.37 19.03 19.13 19.11 18.91 19.03L16.57 18.09C16.08 18.46 15.55 18.77 14.98 19.01L14.63 21.5C14.6 21.73 14.4 21.9 14.17 21.9H10.37C10.14 21.9 9.94 21.73 9.91 21.5L9.56 19.01C8.99 18.77 8.46 18.46 7.97 18.09L5.63 19.03C5.41 19.11 5.17 19.03 5.05 18.82L3.15 15.53C3.03 15.32 3.08 15.07 3.26 14.93L5.25 13.38C5.18 12.93 5.14 12.47 5.14 12C5.14 11.53 5.18 11.07 5.25 10.62L3.26 9.07C3.08 8.93 3.03 8.68 3.15 8.47L5.05 5.18C5.17 4.97 5.41 4.89 5.63 4.97L7.97 5.91C8.46 5.54 8.99 5.23 9.56 4.99L9.91 2.5C9.94 2.27 10.14 2.1 10.37 2.1H14.17C14.4 2.1 14.6 2.27 14.63 2.5L14.98 4.99C15.55 5.23 16.08 5.54 16.57 5.91L18.91 4.97C19.13 4.89 19.37 4.97 19.49 5.18L21.39 8.47C21.51 8.68 21.46 8.93 21.28 9.07L19.29 10.62C19.36 11.07 19.4 11.53 19.4 12Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ===========================
+     MAIN DASHBOARD
+=========================== -->
+<main class="dashboard">
+
+  <!-- LEFT COLUMN -->
+  <section class="dashboard-left">
+
+    <!-- Card 1: Video source (MP4 upload OR RTSP URL) -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-eyebrow">01 / 03</span>
+        <h3 class="card-title">Video source</h3>
+      </div>
+
+      <div class="source-tabs" role="tablist" aria-label="Video source type">
+        <button type="button" class="source-tab active" role="tab" aria-selected="true" data-source="file">Upload MP4</button>
+        <button type="button" class="source-tab" role="tab" aria-selected="false" data-source="rtsp">RTSP stream</button>
+      </div>
+
+      <!-- Panel: MP4 file -->
+      <div id="panelFile">
+        <div class="upload-zone" id="videoUploadZone" tabindex="0" role="button" aria-label="Upload class video">
+          <input type="file" id="videoFileInput" accept="video/mp4,video/quicktime,.mp4,.mov" hidden>
+          <div class="upload-empty" id="videoUploadEmpty">
+            <svg width="28" height="28" viewBox="0 0 30 30" fill="none">
+              <rect x="4" y="9" width="16" height="14" rx="2.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M20 13.5L26 10V22L20 18.5" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+            </svg>
+            <p class="upload-text">Drag and drop, or <span class="upload-link">click to upload</span></p>
+            <p class="upload-hint">MP4 or MOV, up to 2GB</p>
+          </div>
+          <div class="upload-preview upload-preview-file" id="videoUploadPreview" hidden>
+            <div class="file-badge">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                <rect x="2.5" y="5.5" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M13.5 8.5L17.5 6.2V13.8L13.5 11.5" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="preview-meta">
+              <span class="preview-filename" id="videoFilename">No file selected</span>
+            </div>
+            <button type="button" class="delete-btn" id="videoDeleteBtn" aria-label="Remove video">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <path d="M2 4H13M5.5 4V2.5C5.5 2 5.9 1.6 6.4 1.6H8.6C9.1 1.6 9.5 2 9.5 2.5V4M6.2 7V11M8.8 7V11M3.2 4L3.8 12.4C3.8 12.9 4.2 13.3 4.7 13.3H10.3C10.8 13.3 11.2 12.9 11.2 12.4L11.8 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel: RTSP URL -->
+      <div id="panelRtsp" hidden>
+        <form class="rtsp-form" id="rtspForm" novalidate>
+          <input type="text" class="rtsp-input" id="rtspInput" placeholder="rtsp://username:password@host:554/stream" autocomplete="off" spellcheck="false" aria-label="RTSP URL">
+          <button type="submit" class="rtsp-set">Use stream</button>
+        </form>
+        <div class="rtsp-preview" id="rtspPreview" hidden>
+          <div class="file-badge">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+              <circle cx="10" cy="10" r="2" fill="currentColor"/>
+              <path d="M5.8 5.8C3.5 8.1 3.5 11.9 5.8 14.2M14.2 5.8C16.5 8.1 16.5 11.9 14.2 14.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="preview-meta">
+            <span class="preview-filename" id="rtspUrlLabel"></span>
+          </div>
+          <button type="button" class="delete-btn" id="rtspDeleteBtn" aria-label="Remove stream">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+              <path d="M2 4H13M5.5 4V2.5C5.5 2 5.9 1.6 6.4 1.6H8.6C9.1 1.6 9.5 2 9.5 2.5V4M6.2 7V11M8.8 7V11M3.2 4L3.8 12.4C3.8 12.9 4.2 13.3 4.7 13.3H10.3C10.8 13.3 11.2 12.9 11.2 12.4L11.8 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <p class="source-error" id="sourceError" role="alert" hidden></p>
+    </div>
+
+    <!-- Card 2: Class selection -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-eyebrow">02 / 03</span>
+        <h3 class="card-title">Class selection</h3>
+      </div>
+      <div class="class-grid" id="classGrid"><!-- filled by js/dashboard.js --></div>
+    </div>
+
+    <!-- Card 3: Mark attendance -->
+    <div class="card search-card">
+      <button class="btn btn-magnetic btn-large" id="markAttendanceBtn" disabled>
+        <span class="btn-label">Mark attendance</span>
+      </button>
+      <p class="search-hint" id="attendanceHint">Add a video source and choose a class to begin.</p>
+    </div>
+
+  </section>
+
+  <!-- RIGHT COLUMN -->
+  <section class="dashboard-right">
+
+    <div class="terminal-panel" id="terminalPanel">
+      <div class="terminal-titlebar">
+        <div class="terminal-dots"><span></span><span></span><span></span></div>
+        <span class="terminal-label" id="terminalLabel">trace attendance session</span>
+      </div>
+
+      <div class="terminal-body" id="terminalBody">
+        <div class="terminal-line terminal-idle" id="terminalIdle">Select a class to view its roster.</div>
+        <div class="roster-list" id="rosterList"></div>
+      </div>
+
+      <div class="terminal-actions" id="terminalActions" hidden>
+        <button class="btn btn-magnetic-onblack" id="downloadJsonBtn">Download JSON</button>
+        <button class="btn btn-magnetic-onblack" id="downloadCsvBtn">Download CSV</button>
+        <button class="btn btn-magnetic-onblack" id="clearAllBtn">Clear all</button>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- ===========================
+     SETTINGS MODAL
+=========================== -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsPanelTitle">
+
+    <div class="settings-panel" id="settingsPanel"><!-- filled by js/dashboard.js --></div>
+
+    <div class="settings-side">
+      <div class="settings-profile">
+        <span class="settings-profile-id">
+          <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+            <circle cx="9" cy="6.2" r="3.2" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M2.6 16C3.4 12.6 6 10.8 9 10.8C12 10.8 14.6 12.6 15.4 16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span id="settingsOperatorName">Guest</span>
+        </span>
+        <button class="settings-close" id="settingsCloseBtn" aria-label="Close settings">
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+            <path d="M2 2L16 16M16 2L2 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <nav class="settings-nav" id="settingsNav">
+        <button class="settings-nav-item" type="button" data-panel="controls">Controls</button>
+        <button class="settings-nav-item" type="button" data-panel="appearance">Appearance</button>
+        <button class="settings-nav-item" type="button" data-panel="feedback">Send feedback</button>
+        <div class="settings-nav-divider"></div>
+        <a class="settings-nav-item" href="howtouse.html">
+          How to use
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6 4H4C3.4 4 3 4.4 3 5V12C3 12.6 3.4 13 4 13H11C11.6 13 12 12.6 12 12V10M9 3H13V7M13 3L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a class="settings-nav-item" href="privacy.html">
+          Privacy policy
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6 4H4C3.4 4 3 4.4 3 5V12C3 12.6 3.4 13 4 13H11C11.6 13 12 12.6 12 12V10M9 3H13V7M13 3L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a class="settings-nav-item" href="terms.html">
+          Terms and conditions
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6 4H4C3.4 4 3 4.4 3 5V12C3 12.6 3.4 13 4 13H11C11.6 13 12 12.6 12 12V10M9 3H13V7M13 3L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a class="settings-nav-item" href="about.html">
+          About us
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6 4H4C3.4 4 3 4.4 3 5V12C3 12.6 3.4 13 4 13H11C11.6 13 12 12.6 12 12V10M9 3H13V7M13 3L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </nav>
+    </div>
+
+  </div>
+</div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>
