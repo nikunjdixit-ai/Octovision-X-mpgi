@@ -5,6 +5,8 @@ import sys
 import time
 from pathlib import Path
 
+import cv2
+
 # Ensure repository root is on sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -17,6 +19,7 @@ from src.identity.enrollment import EnrollmentError, StudentRegistry
 from src.identity.identity_engine import IdentityEngine
 from src.reid.reid_model import ReIDModel
 from src.verification.attendance_verifier import AttendanceVerifier, VerificationConfig
+from src.visualization.live_view import LiveAttendanceView
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -158,6 +161,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="With --verify: skip clip.mp4 evidence (faster)",
     )
+    parser.add_argument(
+        "--show",
+        action="store_true",
+        help="Show a live window with names on each person and the class list (needs a display; Q stops)",
+    )
+    parser.add_argument(
+        "--save-video",
+        type=str,
+        default=None,
+        help="Save the live view as an .mp4 (e.g. output/attendance/live_view.mp4); works without a display",
+    )
     return parser
 
 
@@ -266,8 +280,27 @@ def main() -> int:
     verifier = AttendanceVerifier(attendance_engine, VerificationConfig()) if args.verify else None
     controller.subscribe(verifier.process_frame if verifier else attendance_engine.process_frame)
 
+    live_view = None
+    if args.show or args.save_video:
+        cap = cv2.VideoCapture(str(video_path))
+        video_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+        cap.release()
+        live_view = LiveAttendanceView(
+            attendance_engine,
+            identity_engine,
+            show=args.show,
+            save_path=args.save_video,
+            fps=video_fps,
+            on_quit=controller.stop,
+        )
+        # Registered after attendance so it draws the decisions of the same frame
+        controller.subscribe(live_view)
+
     t0 = time.perf_counter()
-    frames_processed = controller.run(max_frames=args.max_frames)
+    try:
+        frames_processed = controller.run(max_frames=args.max_frames)
+    finally:
+        saved_live_video = live_view.close() if live_view is not None else None
     elapsed_sec = time.perf_counter() - t0
     fps = frames_processed / elapsed_sec if elapsed_sec > 0 else 0.0
 
@@ -310,6 +343,8 @@ def main() -> int:
     )
     print(f"CSV Report    : {csv_path}")
     print(f"JSON Report   : {json_path}")
+    if saved_live_video is not None:
+        print(f"Live View     : {saved_live_video}")
 
     if verifier is not None:
         report_dir = csv_path.parent / "verification"

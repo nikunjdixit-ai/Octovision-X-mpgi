@@ -60,6 +60,22 @@ output/attendance/verification/
 └── <student_id>/         proof files
 ```
 
+## Live view (for demos)
+
+Watch attendance being taken while the class video plays:
+
+```bash
+python scripts/run_attendance.py --video <class video> --registry data/enrollment/registry \
+    --show --save-video output/attendance/live_view.mp4 --verify
+```
+
+- Each person is boxed: **green + name** once confirmed, **yellow "checking..."**
+  while the identity is being decided, **grey "Unknown"** if not on the class list.
+- A side panel shows the class list switching ABSENT → PRESENT and the present count.
+- `--show` opens a window (needs a screen; press **Q** to stop early — reports are still written).
+- `--save-video` records the same view to an .mp4, so it also works on Colab
+  (no screen): run it there, then play the video in the demo.
+
 ## Design notes
 
 - Recording evidence can never break attendance: attendance is updated first,
