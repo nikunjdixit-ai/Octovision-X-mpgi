@@ -13,7 +13,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.attendance.attendance_engine import AttendanceConfig, AttendanceEngine
+from src.core.live_source import LiveStream, load_env_file, resolve_source
 from src.core.pipeline_controller import PipelineController
+from src.core.stream import create_camera_stream, sanitize_url
 from src.core.types import StreamConfig
 from src.identity.enrollment import EnrollmentError, StudentRegistry
 from src.identity.identity_engine import IdentityEngine
@@ -32,7 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
         dest="video",
         type=str,
         required=True,
-        help="Path to input classroom MP4 video (e.g., data/raw/videos/classroom/classroom_test.mp4)",
+        help=(
+            "Classroom video file (e.g. data/raw/videos/classroom/classroom_test.mp4), "
+            "'camera' for the IP camera set in .env, an rtsp:// URL, or a webcam index (0, 1, ...)"
+        ),
     )
     parser.add_argument(
         "--registry",
@@ -172,6 +177,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Save the live view as an .mp4 (e.g. output/attendance/live_view.mp4); works without a display",
     )
+    parser.add_argument(
+        "--duration",
+        type=float,
+        default=None,
+        help="Live camera only: stop after this many minutes and write the reports (default: until Q or Ctrl+C)",
+    )
+    parser.add_argument(
+        "--env-file",
+        type=str,
+        default=".env",
+        help="File with the camera settings for --source camera (default: .env, never committed)",
+    )
     return parser
 
 
@@ -179,8 +196,15 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
 
-    video_path = Path(args.video)
-    if not video_path.exists() or not video_path.is_file():
+    load_env_file(PROJECT_ROOT / args.env_file if not Path(args.env_file).is_absolute() else args.env_file)
+    try:
+        source_type, source_path = resolve_source(args.video)
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return 1
+    is_live = source_type != "file"
+    video_path = Path(source_path) if not is_live else None
+    if not is_live and (not video_path.exists() or not video_path.is_file()):
         print(f"ERROR: Classroom video file not found: {video_path}")
         return 1
 
@@ -234,7 +258,7 @@ def main() -> int:
     print("=================================================================")
     print("             TRACE CLASSROOM ATTENDANCE ENGINE                   ")
     print("=================================================================")
-    print(f"Video Source       : {video_path}")
+    print(f"Video Source       : {video_path if not is_live else f'{source_type} {sanitize_url(source_path)}'}")
     print(f"Student Registry   : {registry_path} ({len(students)} students enrolled)")
     print(f"Total Ref Samples  : {sum(s.num_samples for s in students)} reference images")
     print(f"Unique Roll Nos    : {len(set(roll_numbers))} verified unique")
@@ -267,24 +291,46 @@ def main() -> int:
     )
 
     stream_config = StreamConfig(
-        source_type="file",
-        source_path=str(video_path),
+        source_type=source_type,
+        source_path=source_path,
         camera_id=args.camera_id,
         session_id=session_id,
     )
 
-    controller = PipelineController(
-        config=stream_config,
-        model_path=args.model,
-    )
+    if is_live:
+        stream = create_camera_stream(stream_config)
+        print("Connecting to camera...")
+        ok, message, meta = stream.probe(timeout_sec=10.0)
+        if not ok:
+            print(f"ERROR: Cannot read from the camera: {message}")
+            print(
+                "Check that the camera is on the same Wi-Fi as this laptop, the IP and password in .env "
+                "are right, and the stream opens in VLC."
+            )
+            return 1
+        print(f"Camera connected   : {meta.get('width')}x{meta.get('height')} @ {meta.get('fps')} FPS")
+        live_stream = LiveStream(
+            stream,
+            max_duration_sec=args.duration * 60 if args.duration else None,
+        )
+        controller = PipelineController(stream=live_stream, model_path=args.model)
+    else:
+        controller = PipelineController(
+            config=stream_config,
+            model_path=args.model,
+        )
     verifier = AttendanceVerifier(attendance_engine, VerificationConfig()) if args.verify else None
     controller.subscribe(verifier.process_frame if verifier else attendance_engine.process_frame)
 
     live_view = None
     if args.show or args.save_video:
-        cap = cv2.VideoCapture(str(video_path))
-        video_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-        cap.release()
+        if is_live:
+            # A live run keeps only the frames it had time to process (about 5 per second on a laptop CPU)
+            video_fps = 5.0
+        else:
+            cap = cv2.VideoCapture(str(video_path))
+            video_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+            cap.release()
         live_view = LiveAttendanceView(
             attendance_engine,
             identity_engine,
@@ -296,11 +342,24 @@ def main() -> int:
         # Registered after attendance so it draws the decisions of the same frame
         controller.subscribe(live_view)
 
+    if is_live:
+        stop_hint = "press Q in the window or Ctrl+C here" if args.show else "press Ctrl+C"
+        if args.duration:
+            stop_hint = f"stops after {args.duration:g} min, or {stop_hint}"
+        print(f"Taking attendance live ({stop_hint}); reports are written when it stops.")
+
     t0 = time.perf_counter()
+    frames_processed = 0
     try:
         frames_processed = controller.run(max_frames=args.max_frames)
+    except KeyboardInterrupt:
+        frames_processed = controller.processed_frames
+        controller.stop()
+        print("\nStopped by Ctrl+C - writing reports for what was seen so far.")
     finally:
         saved_live_video = live_view.close() if live_view is not None else None
+    if is_live and live_stream.ended_reason:
+        print(f"Live run ended: {live_stream.ended_reason}")
     elapsed_sec = time.perf_counter() - t0
     fps = frames_processed / elapsed_sec if elapsed_sec > 0 else 0.0
 
@@ -351,7 +410,8 @@ def main() -> int:
         v_csv, v_json, v_records = verifier.export(
             report_dir,
             photos_dir=args.photos_dir or args.students_dir,
-            video_path=None if args.no_clips else video_path,
+            # No clips for a live camera: there is no recording to cut them from
+            video_path=None if (args.no_clips or is_live) else video_path,
         )
         print("\n--- VERIFICATION ---")
         for rec in v_records:
