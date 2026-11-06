@@ -26,7 +26,7 @@ class PipelineController:
     """
     Reusable central Computer Vision pipeline controller.
     Coordinates: Camera Ingestion -> Detection -> Tracking -> Structured Event Dispatch.
-    Powers both CCTV Incident Intelligence and Automated Classroom Attendance.
+    Powers the Automated Classroom Attendance pipeline.
     """
 
     def __init__(

@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-logger = logging.getLogger("cctv_ai.reid.gallery")
+logger = logging.getLogger("trace.reid.gallery")
 
 
 def parse_stream_track_uid(identifier: str) -> Dict[str, Any]:
@@ -17,8 +17,8 @@ def parse_stream_track_uid(identifier: str) -> Dict[str, Any]:
     Parses camera_id, session_id, and track_id from namespaced UID.
     Handles formats:
       - 'CAM_01_SESS_01_1' -> camera_id='CAM_01', session_id='SESS_01', track_id=1
-      - 'CAM_MALL_NORTH_SESS_123_42' -> camera_id='CAM_MALL_NORTH', session_id='SESS_123', track_id=42
-      - 'CAM_MALL_01_1789899395_2' -> camera_id='CAM_MALL_01', session_id='1789899395', track_id=2
+      - 'CAM_BLOCK_A_ROOM_2_SESS_123_42' -> camera_id='CAM_BLOCK_A_ROOM_2', session_id='SESS_123', track_id=42
+      - 'CAM_ROOM_101_1789899395_2' -> camera_id='CAM_ROOM_101', session_id='1789899395', track_id=2
       - 'ID_1' -> track_id=1, camera_id=None, session_id=None
       - '1' -> track_id=1
     """

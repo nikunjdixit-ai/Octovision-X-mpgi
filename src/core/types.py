@@ -29,7 +29,7 @@ class BoundingBox:
 
     @property
     def bottom_center(self) -> Tuple[int, int]:
-        """Ground contact foot position for spatial zone intrusion detection."""
+        """Ground contact foot position of the person (bottom-center of the box)."""
         return (self.x1 + self.x2) // 2, self.y2
 
     def to_xyxy(self) -> Tuple[int, int, int, int]:
